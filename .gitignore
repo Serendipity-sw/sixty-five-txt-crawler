@@ -13,3 +13,8 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+.idea
+sixty-five-txt-crawler
+sixty-five-txt-crawler*
+*.zip
+*.txt
