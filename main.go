@@ -9,11 +9,13 @@ import (
 	"github.com/swgloomy/gutil"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 func main() {
@@ -33,6 +35,16 @@ func main() {
 	}
 
 	urlPath := config.GetString("url")
+
+	urlObj, err := url.Parse(urlPath)
+	if err != nil {
+		glog.Error("url parse run err! urlPath: %s err: %s \n", urlPath, err.Error())
+		return
+	}
+
+	threadSleepTime := config.GetIntDefault("threadSleepTime", 0)
+	threadSyncNumber := config.GetIntDefault("threadSyncNumber", 0)
+
 	pageListDomIn, err := getUrlDom(urlPath)
 	if err != nil {
 		glog.Error("getUrlDom run err! urlPath: %s err: %s \n", urlPath, err.Error())
@@ -49,27 +61,44 @@ func main() {
 		bo      bool
 		urlList []string
 	)
+
+	dtNumber := docQuery.Find("#list dl>dt").Length()
+
 	docQuery.Find("#list dl>*").Each(func(i int, selection *goquery.Selection) {
-		urlPath, bo = selection.Find("a").Attr("href")
-		if bo {
-			if strings.HasPrefix(urlPath, "/") {
-				urlPath = fmt.Sprintf("http://www.665txt.com/%s", urlPath)
+		if dtNumber > 0 {
+			if selection.Is("dt") {
+				dtNumber--
 			}
-			urlList = append(urlList, urlPath)
+		} else {
+			urlPath, bo = selection.Find("a").Attr("href")
+			if bo {
+				if strings.HasPrefix(urlPath, "/") {
+					urlPath = fmt.Sprintf("%s://%s/%s", urlObj.Scheme, urlObj.Host, urlPath)
+				}
+				urlList = append(urlList, urlPath)
+			}
 		}
 	})
 
 	var (
-		threadLock   sync.WaitGroup
-		contentList  = make(map[int]string)
-		contentArray []byte
+		threadLock      sync.WaitGroup
+		contentList     = make(map[int]string)
+		contentListLock sync.RWMutex
+		contentArray    []byte
 	)
 	for i, s := range urlList {
 		contentList[i] = ""
-		threadLock.Add(1)
-		go fictionPageProcess(s, &threadLock, &contentList, i)
-		if i%2 == 0 {
+		if threadSyncNumber != 0 {
+			if i%threadSyncNumber == 0 {
+				threadLock.Wait()
+			}
+		} else {
 			threadLock.Wait()
+		}
+		threadLock.Add(1)
+		go fictionPageProcess(s, &contentListLock, &threadLock, &contentList, i)
+		if threadSleepTime != 0 {
+			time.Sleep(time.Duration(threadSleepTime) * time.Second)
 		}
 	}
 	threadLock.Wait()
@@ -117,7 +146,7 @@ func getUrlDom(urlPath string) (*[]byte, error) {
 /**
 小说页面处理
 */
-func fictionPageProcess(httpUrl string, threadLock *sync.WaitGroup, contentListIn *map[int]string, index int) {
+func fictionPageProcess(httpUrl string, contentListLock *sync.RWMutex, threadLock *sync.WaitGroup, contentListIn *map[int]string, index int) {
 	defer func() {
 		threadLock.Done()
 	}()
@@ -140,6 +169,8 @@ func fictionPageProcess(httpUrl string, threadLock *sync.WaitGroup, contentListI
 	var content string
 	content = docQuery.Find(".bookname h1").Eq(0).Text()
 	content = fmt.Sprintf("%s\r\n%s", content, docQuery.Find("#content").Text())
+	contentListLock.Lock()
 	(*contentListIn)[index] = strings.ReplaceAll(content, "    ", "\r\n")
+	contentListLock.Unlock()
 	glog.Info("fictionPageProcess run success! httpUrl: %s index: %d \n", httpUrl, index)
 }

@@ -1,5 +1,13 @@
 # sixty-five-txt-crawler
+
 65txt小说网爬虫
 
 ## 配置文件
-config.json文件夹中的配置项为需要爬取的小说地址
+
+config.json文件夹中的配置项
+
+url 需要抓取的小说页面
+
+threadSleepTime 为是否需要加入线程睡眠单位(秒) 如设置0则不进行线程睡眠
+
+threadSyncNumber 开启异步多线程数量
