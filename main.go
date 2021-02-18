@@ -18,6 +18,11 @@ import (
 	"time"
 )
 
+var (
+	titleDom   string
+	contentDom string
+)
+
 func main() {
 	defer func() {
 		glog.Close()
@@ -45,6 +50,10 @@ func main() {
 	threadSleepTime := config.GetIntDefault("threadSleepTime", 0)
 	threadSyncNumber := config.GetIntDefault("threadSyncNumber", 0)
 
+	catalogDom := config.GetString("catalogDom")
+	titleDom = config.GetString("titleDom")
+	contentDom = config.GetString("contentDom")
+
 	pageListDomIn, err := getUrlDom(urlPath)
 	if err != nil {
 		glog.Error("getUrlDom run err! urlPath: %s err: %s \n", urlPath, err.Error())
@@ -62,9 +71,9 @@ func main() {
 		urlList []string
 	)
 
-	dtNumber := docQuery.Find("#list dl>dt").Length()
+	dtNumber := docQuery.Find(fmt.Sprintf("%s dl>dt", catalogDom)).Length()
 
-	docQuery.Find("#list dl>*").Each(func(i int, selection *goquery.Selection) {
+	docQuery.Find(fmt.Sprintf("%s dl>*", catalogDom)).Each(func(i int, selection *goquery.Selection) {
 		if dtNumber > 0 {
 			if selection.Is("dt") {
 				dtNumber--
@@ -86,6 +95,7 @@ func main() {
 		contentListLock sync.RWMutex
 		contentArray    []byte
 	)
+	contentArray = append(contentArray, []byte(fmt.Sprintf("%s\r\n", urlPath))...)
 	for i, s := range urlList {
 		contentList[i] = ""
 		if threadSyncNumber != 0 {
@@ -167,8 +177,8 @@ func fictionPageProcess(httpUrl string, contentListLock *sync.RWMutex, threadLoc
 		return
 	}
 	var content string
-	content = docQuery.Find(".bookname h1").Eq(0).Text()
-	content = fmt.Sprintf("%s\r\n%s", content, docQuery.Find("#content").Text())
+	content = docQuery.Find(titleDom).Eq(0).Text()
+	content = fmt.Sprintf("%s\r\n%s", content, docQuery.Find(contentDom).Text())
 	contentListLock.Lock()
 	(*contentListIn)[index] = strings.ReplaceAll(content, "    ", "\r\n")
 	contentListLock.Unlock()

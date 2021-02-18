@@ -1,5 +1,8 @@
 {
-  "url": "https://www.51biquge.com/book_53548/",
+  "url": "https://www.sywu.cc/1_1854/",
   "threadSleepTime": 0,
-  "threadSyncNumber": 2
+  "threadSyncNumber": 2,
+  "catalogDom": ".listmain",
+  "titleDom": ".content h1",
+  "contentDom": "#content"
 }
